@@ -1,0 +1,10 @@
+TODO.*
+tmp
+.vagrant
+install.log
+system/host_vars/*
+inventories/*
+*.pyc
+*.apk
+*.zip
+*.tar.*

@@ -15,11 +15,13 @@
     - arp-scan
     - curl
     - etherwake
+    - gnutls-bin
     - htop
     - iotop
     - mc
     - pwgen
     - pssh
+    - ssl-cert
     - tmux
     - vim
   environment: "{{ proxy_env }}"
@@ -65,6 +67,44 @@
         group: root,
         mode: "0755"
       }
+  become: yes
+
+
+### CERTIFICATE AUTHORITY
+- name: Create directory for certificate templates
+  file:
+    path: /etc/ssl/templates
+    owner: root
+    group: root
+    mode: 0755
+    state: directory
+  become: yes
+
+
+- name: Install GIS.lab certificate authority (CA) template
+  template:
+    src: ssl/gislab-ca.conf.j2
+    dest: /etc/ssl/templates/gislab-ca.conf
+  become: yes
+
+- name: Generate CA key (run only once)
+  shell: >
+    certtool
+    --generate-privkey
+    --outfile {{ GISLAB_PATH_SECRET }}/gislab_ca.key
+  args:
+    creates: "{{ GISLAB_PATH_SECRET }}/gislab_ca.key"
+  become: yes
+
+- name: Generate CA certificate (run only once)
+  shell: >
+    certtool
+    --generate-self-signed
+    --load-privkey {{ GISLAB_PATH_SECRET }}/gislab_ca.key
+    --template /etc/ssl/templates/gislab-ca.conf
+    --outfile /etc/ssl/certs/gislab_ca.pem
+  args:
+    creates: /etc/ssl/certs/gislab_ca.pem
   become: yes
 
 

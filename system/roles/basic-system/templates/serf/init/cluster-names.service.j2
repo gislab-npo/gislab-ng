@@ -1,0 +1,19 @@
+[Unit]
+Description=GIS.lab cluster names update
+After=network.target
+
+[Service]
+Type=oneshot
+
+ExecStart=/bin/sh -c '/bin/echo "127.0.0.1  localhost" > /etc/hosts'
+ExecStart=/bin/sh -c '/bin/echo "127.0.1.1  $(/bin/hostname) $(/bin/hostname).gis.lab" \
+    >> /etc/hosts'
+ExecStart=/bin/sh -c ' \
+    /usr/local/bin/serf members -status=alive \
+    | /bin/sed "s/:.\\+$//g" \
+    | /bin/grep -ve ^"$(/bin/hostname) " \
+    | /usr/bin/awk {"print \\$2 \\" \\" \\$1 \\".gis.lab \\"  \\$1"} \
+    >> /etc/hosts'
+
+[Install]
+WantedBy=multi-user.target

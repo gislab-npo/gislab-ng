@@ -1,0 +1,114 @@
+---
+
+### CLUSTERING
+- name: Install packages
+  apt:
+    pkg: "{{ item }}"
+    force: yes
+    install_recommends: no
+    state: latest
+  with_items:
+    - unzip
+  environment: "{{ proxy_env }}"
+  become: yes
+
+
+- name: Download and install Serf
+  unarchive:
+    src: "{{ serf_url }}/serf_{{ serf_version }}_linux_amd64.zip"
+    dest: /usr/local/bin
+    mode: 700
+    copy: no
+    creates: /usr/local/bin/serf
+  become: yes
+
+
+# configuration
+- name: Create cluster configuration directory
+  file:
+    path: /etc/serf
+    state: directory
+    mode: 0755
+  become: yes
+
+- name: Install cluster key
+  template:
+    src: serf/cluster.key.j2
+    dest: /etc/serf/cluster.key
+    mode: 0600
+  notify:
+    - service cluster-agent restart
+  become: yes
+  when: GISLAB_CLUSTER_KEY|default(False)
+
+
+- name: Install cluster agent service
+  template:
+    src: serf/init/cluster-agent.service.j2
+    dest: /etc/systemd/system/cluster-agent.service
+  notify:
+  - service cluster-agent restart
+  become: yes
+
+- name: Enable cluster agent service
+  command: >
+    systemctl enable cluster-agent.service
+  become: yes
+
+
+# handlers
+- name: Create cluster handlers directory
+  file:
+    path: /etc/serf/handlers
+    state: directory
+    mode: 0755
+  become: yes
+
+# TODO: install to other directory than /usr/local/bin
+- name: Install cluster handlers router
+  copy:
+    src: static/serf/handlers.sh
+    dest: /usr/local/bin/cluster-handlers.sh
+    mode: 0755
+  become: yes
+
+- name: Install cluster members change handlers
+  copy:
+    src: static/serf/member-any-change
+    dest: /etc/serf/handlers/{{ item }}
+    mode: 0755
+  with_items:
+    - member-join
+    - member-update
+    - member-leave
+    - member-failed
+  become: yes
+
+
+# cluster names
+- name: Install cluster names service
+  template:
+    src: serf/init/cluster-names.service.j2
+    dest: /etc/systemd/system/cluster-names.service
+  notify:
+    - service cluster-names restart
+  become: yes
+
+- name: Enable cluster names service
+  command: >
+    systemctl enable cluster-names.service
+  become: yes
+
+
+# Manual cluster join if automatic join using mDNS multicasts wouldn't work.
+# If manual approach is used, reconnection after restart must be solved.
+
+#- name: Join cluster on GISLAB_NETWORK_DEVICE network device
+#  command: >
+#    serf join {{ hostvars[item]['ansible_' + GISLAB_NETWORK_DEVICE]['ipv4'].address }}
+#    |
+#    true
+#  with_items: "{{ groups.all }}"
+#  become: yes
+
+# vim: set ts=2 sts=2 sw=2 et:

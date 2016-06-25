@@ -1,0 +1,22 @@
+---
+
+- hosts: node
+  roles:
+    - {
+        role: installation-setup,
+        tags: ['installation-setup']
+    }
+    - {
+        role: basic-system,
+        tags: ['basic-system']
+    }
+    - {
+        role: role-node,
+        tags: ['role-node']
+    }
+    - {
+        role: service-containers,
+        tags: ['service-containers']
+    }
+
+# vim: set ts=2 sts=2 sw=2 et:

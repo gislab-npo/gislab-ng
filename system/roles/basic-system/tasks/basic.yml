@@ -1,0 +1,93 @@
+---
+
+### SYSTEM CONFIGURATION
+- name: Generate en_US.UTF-8 locale
+  locale_gen:
+    name: en_US.UTF-8
+    state: present
+  become: yes
+
+- name: Set timezone
+  template:
+    src: timezone.j2
+    dest: /etc/timezone
+  notify:
+    - reconfigure timezone
+  become: yes
+
+- name: Set system wide environment variables
+  template:
+    src: environment.j2
+    dest: /etc/environment
+  become: yes
+
+- name: Set local aliases table
+  template:
+    src: aliases.j2
+    dest: /etc/aliases
+  become: yes
+
+- name: Configure SSH server
+  template:
+    src: ssh/sshd_config.j2
+    dest: /etc/ssh/sshd_config
+  notify:
+    - service ssh restart
+  become: yes
+
+
+- name: Set MOTD header
+  template:
+    src: motd/00-header.j2
+    dest: /etc/update-motd.d/00-header
+  become: yes
+
+- name: Update MOTD
+  command: run-parts /etc/update-motd.d
+  become: yes
+
+- meta: flush_handlers
+
+
+### PACKAGES
+# TODO: add GIS.lab PPA repository
+- name: Install Apt repositories configuration
+  template:
+    src: apt/sources.list.j2
+    dest: /etc/apt/sources.list
+  become: yes
+
+- name: Install Apt proxy configuration
+  template:
+    src: apt/02proxy.j2
+    dest: /etc/apt/apt.conf.d/02proxy
+  become: yes
+
+
+- name: Wait until Apt is ready
+  shell: >
+    while fuser /var/lib/dpkg/lock > /dev/null 2>&1; do sleep 2; done
+  become: yes
+
+- name: Update Apt cache
+  apt:
+    update_cache: yes
+  environment: "{{ proxy_env }}"
+  become: yes
+
+- name: Install Aptitude
+  apt:
+    pkg: aptitude
+    state: latest
+  environment: "{{ proxy_env }}"
+  become: yes
+
+- name: Upgrade system
+  apt:
+    upgrade: full
+    force: yes
+  environment: "{{ proxy_env }}"
+  when: GISLAB_SYSTEM_UPGRADE
+  become: yes
+
+# vim: set ts=2 sts=2 sw=2 et:

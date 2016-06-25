@@ -1,0 +1,27 @@
+---
+
+# TODO: replace service module with systemd module in Ansible 2.2
+
+- name: reconfigure timezone
+  command: dpkg-reconfigure --frontend noninteractive tzdata
+  become: yes
+
+- name: service ssh restart
+  service:
+    name: ssh
+    state: restarted
+  become: yes
+
+- name: service cluster-agent restart
+  service:
+    name: cluster-agent
+    state: restarted
+  become: yes
+
+- name: service cluster-names restart
+  service:
+    name: cluster-names
+    state: restarted
+  become: yes
+
+# vim: set ts=8 sts=2 sw=2 et:

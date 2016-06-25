@@ -1,16 +1,6 @@
 # -*- mode: ruby -*-
 # vi: set ft=ruby :
 
-################################################################################
-#
-# Copyright 2013 Crown copyright (c)
-# Land Information New Zealand and the New Zealand Government.
-# All rights reserved
-#
-# This program is released under the terms of the new BSD license. See the
-# LICENSE file for more information.
-#
-################################################################################
 
 #
 ### CONFIGURATION SECTION
@@ -24,15 +14,16 @@ ROLES = {
     "master" => {
         "memory" => "2048",
         "ports" => [
+            ["22", "10022"],
             ["5432", "15432"],
         ],
-        "count" => "1",
+        "count" => "1",  # only one master server is supported
     },
 
     "node" => {
         "memory" => "1024",
         "ports" => [
-            ["1111", "11111"],
+            ["22", "10022"],
         ],
         "count" => "2",
     },
@@ -60,8 +51,8 @@ Vagrant.configure(2) do |config|
         # loop over all role instances`
         (1..cfg["count"].to_i).each do |i|
 
-            if i == 1
-                iname = "#{role}"
+            if role == "master"
+                iname = "master"
             else
                 iname = "#{role}-#{i}"
             end
@@ -88,24 +79,28 @@ Vagrant.configure(2) do |config|
 
                 ### PRODUCTION DEPLOYMENT
                 inst.vm.provision "deploy", type: "ansible" do |ansible|
-                    ansible.playbook = "deployment/" + role + "-deploy.yml"
+                    ansible.playbook = "system/" + role + "-deploy.yml"
                     ansible.verbose = "vv"
+                    ansible.groups = {
+                        "#{role}" => insts,
+                    }
                     ansible.extra_vars = {
-                        PROJECT_NAME: "gislab",
-                        ROLE_NAME: "#{role}",
-                        SYSTEM_NETWORK_DEVICE: "enp0s8",
+                        GISLAB_ROLE: "#{role}",
+                        GISLAB_NETWORK_DEVICE: "enp0s8",
                     }
                 end
 
                 ### TEST
                 if File.exist?("deployment/" + role + "-test.yml")
                     inst.vm.provision "test", type: "ansible" do |ansible|
-                        ansible.playbook = "deployment/" + role + "-test.yml"
+                        ansible.playbook = "system/" + role + "-test.yml"
                         ansible.verbose = "vv"
+                        ansible.groups = {
+                            "#{role}" => insts,
+                        }
                         ansible.extra_vars = {
-                            PROJECT_NAME: "gislab",
-                            ROLE_NAME: "#{role}",
-                            SYSTEM_NETWORK_DEVICE: "enp0s8",
+                            GISLAB_ROLE: "#{role}",
+                            GISLAB_NETWORK_DEVICE: "enp0s8",
                         }
                     end
                 else

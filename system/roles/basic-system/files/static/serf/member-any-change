@@ -1,0 +1,6 @@
+#!/bin/bash
+# Restart cluster members names service.
+
+service cluster-names restart
+
+# vim: set ts=4 sts=4 sw=4 et:

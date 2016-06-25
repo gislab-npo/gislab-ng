@@ -8,3 +8,5 @@ inventories/*
 *.apk
 *.zip
 *.tar.*
+*.swp
+*.retry

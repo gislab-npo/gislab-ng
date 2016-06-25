@@ -1,0 +1,19 @@
+---
+
+#
+### CONTAINERS - DOCKER ###
+#
+# Docker containers installation.
+
+- name: Install packages
+  apt:
+    pkg: "{{ item }}"
+    force: yes
+    install_recommends: no
+    state: latest
+  with_items:
+    - docker.io
+  environment: "{{ proxy_env }}"
+  become: yes
+
+# vim: set ts=2 sts=2 sw=2 et:

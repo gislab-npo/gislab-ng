@@ -1,0 +1,35 @@
+[Unit]
+Description=Start GIS.lab cluster agent
+After=syslog.target
+After=network.target
+
+[Service]
+Type=simple
+
+# allow multicast requests using mDNS
+ExecStartPre=/bin/sh -c " \
+    /sbin/ip route add 224.0.0.0/4 dev {{ GISLAB_NETWORK_DEVICE }} \
+    | true"
+
+ExecStart=/usr/local/bin/serf agent \
+    -discover={{ GISLAB_ID }} \
+    -bind {{ GISLAB_SYSTEM_IP_ADDRESS }} \
+    -node="{{ ansible_hostname }}" \
+    -tag role={{ GISLAB_ROLE }} \
+    -event-handler /usr/local/bin/cluster-handlers.sh \
+{% if GISLAB_CLUSTER_KEY|default(False) %}
+    -keyring-file /etc/serf/cluster.key \
+{% endif %}
+    -log-level=err \
+    -syslog
+
+ExecStopPost=/bin/sh -c " \
+    /sbin/ip route del 224.0.0.0/4 dev {{ GISLAB_NETWORK_DEVICE }} \
+    | true"
+
+KillSignal=SIGINT
+Restart=always
+RestartSec=10
+
+[Install]
+WantedBy=multi-user.target

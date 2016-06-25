@@ -1,0 +1,93 @@
+---
+
+#
+### MASTER ROLE ###
+#
+# Master role installation.
+
+- name: Install packages
+  apt:
+    pkg: "{{ item }}"
+    force: yes
+    install_recommends: no
+    state: latest
+  with_items:
+    - arp-scan
+    - curl
+    - etherwake
+    - htop
+    - iotop
+    - mc
+    - pwgen
+    - pssh
+    - tmux
+    - vim
+  environment: "{{ proxy_env }}"
+  become: yes
+
+
+### DIRECTORIES STRUCTURE
+- name: Create master GIS.lab directories structure
+  file:
+    path: "{{ item.path }}"
+    owner: "{{ item.owner }}"
+    group: "{{ item.group }}"
+    mode: "{{ item.mode }}"
+    state: directory
+  with_items:
+    - {
+        path: "{{ GISLAB_ROOT }}",
+        owner: root,
+        group: root,
+        mode: "0755"
+      }
+    - {
+        path: "{{ GISLAB_PATH_ADMIN }}",
+        owner: root,
+        group: root,
+        mode: "0755"
+      }
+    - {
+        path: "{{ GISLAB_PATH_CUSTOM }}",
+        owner: root,
+        group: root,
+        mode: "0755"
+      }
+    - {
+        path: "{{ GISLAB_PATH_SECRET }}",
+        owner: root,
+        group: root,
+        mode: "0700"
+      }
+    - {
+        path: "{{ GISLAB_PATH_SYSTEM }}",
+        owner: root,
+        group: root,
+        mode: "0755"
+      }
+  become: yes
+
+
+### ADMIN TOOLS
+- name: Install GIS.lab shell functions library
+  copy:
+    src: functions.sh
+    dest: "{{ GISLAB_PATH_SYSTEM }}/functions.sh"
+    mode: 0644
+  become: yes
+
+- name: Install GIS.lab administrator tools
+  copy:
+    src: admin/
+    dest: "{{ GISLAB_PATH_ADMIN }}/"
+    mode: 0775
+  become: yes
+
+- name: Add GIS.lab administrator tools on path
+  lineinfile:
+    dest: /etc/profile
+    line: "PATH=$PATH:{{ GISLAB_PATH_ADMIN }}"
+    state: present
+  become: yes
+
+# vim: set ts=2 sts=2 sw=2 et:

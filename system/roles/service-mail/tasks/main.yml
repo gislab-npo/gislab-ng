@@ -1,0 +1,90 @@
+---
+
+#
+### MAIL SERVER - POSTFIX ###
+#
+# Install and configure email server.
+
+
+- name: Install packages
+  apt:
+    pkg: "{{ item }}"
+    force: yes
+    install_recommends: no
+    state: latest
+  with_items:
+    - bsd-mailx
+    - mutt
+    - postfix
+    - postfix-ldap
+    - sasl2-bin
+  environment: "{{ proxy_env }}"
+  become: yes
+
+
+### POSTFIX
+- name: Install main Postfix configuration file
+  template:
+    src: postfix/main.cf.j2
+    dest: /etc/postfix/main.cf
+  notify:
+    - service postfix restart
+  become: yes
+
+- name: Install local LDAP aliases search table
+  template:
+    src: postfix/ldap-aliases.cf.j2
+    dest: /etc/postfix/ldap-aliases.cf
+  notify:
+    - service postfix restart
+  become: yes
+
+
+### RELAY SERVER
+- name: Remove existing SMTP relay server credentials
+  command: rm -f {{ item }}
+  with_items:
+    - /etc/postfix/sasl_passwd
+    - /etc/postfix/sasl_passwd.db
+  become: yes
+
+- name: Set SMTP relay server credentials if available
+  template:
+    src: postfix/sasl_passwd.j2
+    dest: /etc/postfix/sasl_passwd
+  when: GISLAB_EMAIL_RELAY_LOGIN|default(None) != None
+        and GISLAB_EMAIL_RELAY_PASSWORD|default(None) != None
+        and GISLAB_EMAIL_RELAY_SERVER|default(None) != None
+  become: yes
+
+- name: Activate SMTP relay server credentials if available
+  command: "{{ item }}"
+  with_items:
+    - chmod 0600 /etc/postfix/sasl_passwd
+    - postmap /etc/postfix/sasl_passwd
+  when: GISLAB_EMAIL_RELAY_LOGIN|default(None) != None
+        and GISLAB_EMAIL_RELAY_PASSWORD|default(None) != None
+        and GISLAB_EMAIL_RELAY_SERVER|default(None) != None
+  become: yes
+
+
+### EMAIL ALIASES
+- name: Add service user mail alias
+  lineinfile:
+    dest: /etc/aliases
+    line: "postmaster: root"
+    state: present
+  become: yes
+
+- name: Activate new mail alias
+  command: newaliases
+  become: yes
+
+
+- name: Setup correct hostname for outgoing emails generated localy
+  shell: echo "master.gis.lab" > /etc/mailname
+  become: yes
+
+- meta: flush_handlers
+
+# vim: set ts=2 sts=2 sw=2 et:

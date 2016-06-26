@@ -1,0 +1,15 @@
+---
+
+- name: service apparmor reload
+  service:
+    name: apparmor
+    state: reloaded
+  become: yes
+
+- name: service slapd restart
+  service:
+    name: slapd
+    state: restarted
+  become: yes
+
+# vim: set ts=2 sts=2 sw=2 et:

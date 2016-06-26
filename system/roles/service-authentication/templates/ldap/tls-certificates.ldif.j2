@@ -1,0 +1,14 @@
+dn: cn=config
+add: olcTLSCACertificateFile
+olcTLSCACertificateFile: /etc/ssl/certs/gislab_ca.pem
+-
+add: olcTLSCertificateFile
+olcTLSCertificateFile: /etc/ssl/certs/gislab_slapd.pem
+-
+add: olcTLSCertificateKeyFile
+olcTLSCertificateKeyFile: /etc/ssl/private/gislab_slapd.key
+
+dn: cn=config
+changetype: modify
+add: olcSecurity
+olcSecurity: ssf=64

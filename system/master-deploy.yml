@@ -15,6 +15,18 @@
         tags: ['role-master']
     }
     - {
+        role: service-authentication,
+        tags: ['service-authentication']
+    }
+    - {
+        role: service-mail,
+        tags: ['service-mail']
+    }
+    - {
+        role: storage-database,
+        tags: ['storage-database']
+    }
+    - {
         role: service-containers,
         tags: ['service-containers']
     }

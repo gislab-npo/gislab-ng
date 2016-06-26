@@ -1,0 +1,58 @@
+dn: ou=People,dc=gis,dc=lab
+objectClass: organizationalUnit
+ou: people
+
+dn: ou=Groups,dc=gis,dc=lab
+objectClass: organizationalUnit
+ou: groups
+
+dn: ou=SUDOers,dc=gis,dc=lab
+objectClass: top
+objectClass: organizationalUnit
+ou: SUDOers
+
+dn: cn=defaults,ou=SUDOers,dc=gis,dc=lab
+objectClass: top
+objectClass: sudoRole
+cn: defaults
+description: Default sudoOption's go here
+sudoOption: env_reset
+sudoOption: secure_path="/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin:{{ GISLAB_PATH_ADMIN }}:"
+
+dn: cn=%gislabadmins,ou=SUDOers,dc=gis,dc=lab
+objectClass: top
+objectClass: sudoRole
+cn: %gislabadmins
+sudoUser: %gislabadmins
+sudoHost: ALL
+sudoCommand: ALL
+sudoOption: !authenticate
+
+dn: ou=MailAliases,dc=gis,dc=lab
+objectClass: organizationalUnit
+ou: mailaliases
+
+dn: cn=root,ou=MailAliases,dc=gis,dc=lab
+objectclass: top
+objectClass: virtualaccount
+cn: root
+mailacceptinggeneralid: root
+maildrop: {{ GISLAB_PROVISIONING_USER }}
+
+dn: cn=gislabadmins,ou=Groups,dc=gis,dc=lab
+objectClass: posixGroup
+cn: gislabadmins
+gidNumber: 3000
+description: GIS.lab Admins Group
+
+dn: cn=gislabusers,ou=Groups,dc=gis,dc=lab
+objectClass: posixGroup
+cn: gislabusers
+gidNumber: 3001
+description: GIS.lab Users Group
+
+dn: cn=vboxsf,ou=Groups,dc=gis,dc=lab
+objectClass: posixGroup
+cn: vboxsf
+gidNumber: 3100
+description: VirtualBox File Sharing Group

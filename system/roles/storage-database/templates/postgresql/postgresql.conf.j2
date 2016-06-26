@@ -1,0 +1,34 @@
+data_directory = '{{ GISLAB_PATH_STORAGE }}/postgresql'
+hba_file = '/etc/postgresql/{{ postgresql_version  }}/main/pg_hba.conf'
+ident_file = '/etc/postgresql/{{ postgresql_version }}/main/pg_ident.conf'
+
+external_pid_file = '/var/run/postgresql/{{ postgresql_version }}-main.pid'
+
+listen_addresses = '*'
+port = 5432
+unix_socket_directories = '/var/run/postgresql'
+
+ssl = true
+ssl_cert_file = '/etc/ssl/certs/ssl-cert-snakeoil.pem'
+ssl_key_file = '/etc/ssl/private/ssl-cert-snakeoil.key'
+
+search_path = '"$user",public'
+default_text_search_config = 'pg_catalog.english'
+
+datestyle = 'iso, mdy'
+lc_messages = 'en_US.UTF-8'
+lc_monetary = 'en_US.UTF-8'
+lc_numeric = 'en_US.UTF-8'
+lc_time = 'en_US.UTF-8'
+
+# logging
+log_line_prefix = '%t '
+log_destination = 'syslog'
+syslog_facility = 'LOCAL7'
+
+log_min_messages = 'ERROR'
+
+# GISLAB_DEBUG: uncomment these lines for debug mode
+# log_min_messages = 'DEBUG1'
+# log_min_error_statement = 'DEBUG1'
+# log_min_duration_statement = 0

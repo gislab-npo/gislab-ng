@@ -1,0 +1,258 @@
+---
+
+#
+### DATABASE STORAGE - POSTGRESQL/POSTGIS ###
+#
+# Install database server and create GIS template database.
+
+- name: Install packages
+  apt:
+    pkg: "{{ item }}"
+    force: yes
+    install_recommends: no
+    state: latest
+  with_items:
+    - python-psycopg2
+
+    - postgresql-{{ postgresql_version }}
+    - postgresql-contrib-{{ postgresql_version }}
+    - postgresql-{{ postgresql_version }}-postgis-{{ postgis_version }}
+    - postgresql-comparator
+  environment: "{{ proxy_env }}"
+  become: yes
+
+
+### STORAGE
+- name: Drop initial PostgreSQL cluster
+  shell: >
+    pg_dropcluster
+    --stop
+    {{ postgresql_version }} main
+  args:
+    removes: /var/lib/postgresql/{{ postgresql_version }}/main/PG_VERSION
+  become: yes
+
+- name: Create PostgreSQL cluster data storage directory
+  file:
+    path: "{{ GISLAB_PATH_STORAGE }}/postgresql"
+    state: directory
+    owner: postgres
+    group: postgres
+  become: yes
+
+
+# TODO: add support for other locale
+- name: Create PostgreSQL cluster
+  shell: >
+    pg_createcluster
+    --locale en_US.UTF-8
+    --datadir={{ GISLAB_PATH_STORAGE }}/postgresql
+    --start
+    {{ postgresql_version }} main
+  args:
+    creates: "{{ GISLAB_PATH_STORAGE }}/postgresql/PG_VERSION"
+  become: yes
+
+
+### CONFIGURATION
+- name: Configure PostgreSQL
+  template:
+    src: postgresql/postgresql.conf.j2
+    dest: /etc/postgresql/{{ postgresql_version }}/main/postgresql.conf
+  notify:
+    - service postgresql restart
+  become: yes
+
+- name: Configure PostgreSQL access policy
+  template:
+    src: "{{ item.src }}"
+    dest: "{{ item.dest }}"
+  with_items:
+    - {
+        src: postgresql/pg_hba.conf.j2,
+        dest: "/etc/postgresql/{{ postgresql_version }}/main/pg_hba.conf"
+      }
+    - {
+        src: postgresql/pg_ident.conf.j2,
+        dest: "/etc/postgresql/{{ postgresql_version }}/main/pg_ident.conf"
+      }
+  notify:
+    - service postgresql restart
+  become: yes
+
+
+### ROLES
+- name: Create database superusers group (gislabadmins)
+  postgresql_user:
+    name: gislabadmins
+    role_attr_flags: CREATEDB,CREATEROLE,SUPERUSER,NOLOGIN
+    state: present
+  become: yes
+  become_user: postgres
+
+- name: Create database users group (gislabusers)
+  postgresql_user:
+    name: gislabusers
+    role_attr_flags: NOCREATEDB,NOCREATEROLE,NOSUPERUSER,NOLOGIN
+    state: present
+  become: yes
+  become_user: postgres
+
+
+### TEMPLATE
+- name: Remove template status from PostGIS template database
+  command: >
+    psql
+    -U postgres
+    -c "UPDATE pg_database
+    SET datistemplate='false'
+    WHERE datname='template_postgis';"
+  become: yes
+  become_user: postgres
+
+- name: Drop PostGIS template database
+  postgresql_db:
+    name: template_postgis
+    state: absent
+  become: yes
+  become_user: postgres
+
+- name: Create PostGIS template database
+  postgresql_db:
+    name: template_postgis
+    encoding: 'UTF-8'
+    template: template0
+    state: present
+  become: yes
+  become_user: postgres
+
+
+# extensions
+- name: Install PostGIS extensions to PostGIS template database
+  postgresql_ext:
+    name: "{{ item }}"
+    db: template_postgis
+    state: present
+  with_items:
+    - postgis
+    - postgis_topology
+  become: yes
+  become_user: postgres
+
+- name: Install PostgreSQL Comparator to PostGIS template database
+  command: >
+    psql
+    -U postgres
+    -d template_postgis
+    -f /usr/share/postgresql/{{ postgresql_version }}/contrib/{{ item }}
+  with_items:
+    - pgc_checksum.sql
+    - pgc_casts.sql
+    - xor_aggregate.sql
+  become: yes
+  become_user: postgres
+
+
+# permissions
+- name: Set permissions to PostGIS template database
+  command: >
+    psql
+    -U postgres
+    -d template_postgis
+    -c "{{ item }}"
+  with_items:
+    - REVOKE ALL ON SCHEMA public FROM PUBLIC
+
+    - GRANT USAGE ON SCHEMA public TO PUBLIC
+    - GRANT ALL ON SCHEMA public TO postgres
+
+    - GRANT SELECT, UPDATE, INSERT, DELETE ON geometry_columns TO PUBLIC
+    - GRANT SELECT, UPDATE, INSERT, DELETE ON geography_columns TO PUBLIC
+    - GRANT SELECT, UPDATE, INSERT, DELETE ON spatial_ref_sys TO PUBLIC
+
+    - GRANT USAGE ON SCHEMA topology TO PUBLIC
+    - GRANT SELECT, UPDATE, INSERT, DELETE ON topology.layer TO PUBLIC
+    - GRANT SELECT, UPDATE, INSERT, DELETE ON topology.topology TO PUBLIC
+  become: yes
+  become_user: postgres
+
+
+# cleanup
+- name: Vacuum FULL PostGIS template database
+  command: >
+    psql
+    -U postgres
+    -d template_postgis
+    -c "VACUUM FULL;"
+  become: yes
+  become_user: postgres
+
+- name: Vacuum FREEZE PostGIS template database
+  command: >
+    psql
+    -U postgres
+    -d template_postgis
+    -c "VACUUM FREEZE;"
+  become: yes
+  become_user: postgres
+
+
+# finish
+- name: Set template status to PostGIS template database
+  command: >
+    psql
+    -U postgres
+    -c "
+    UPDATE pg_database
+    SET datistemplate='true'
+    WHERE datname='template_postgis';
+    "
+  become: yes
+  become_user: postgres
+
+- name: Do not accept any connections to PostGIS template database
+  command: >
+    psql
+    -U postgres
+    -c "
+    UPDATE pg_database
+    SET datallowconn='false'
+    WHERE datname='template_postgis';
+    "
+  become: yes
+  become_user: postgres
+
+
+### GIS.lab DATABASE
+- name: Create production database 'gislab'
+  postgresql_db:
+    name: gislab
+    template: template_postgis
+    state: present
+  become: yes
+  become_user: postgres
+
+- name: Grant connection to 'gislab' database
+  command: >
+    psql
+    -U postgres
+    -c "GRANT CONNECT ON DATABASE gislab TO gislabusers;"
+  become: yes
+  become_user: postgres
+
+
+### EMAIL
+- name: Add service user mail alias
+  lineinfile:
+    dest: /etc/aliases
+    line: "postgres: root"
+    state: present
+  become: yes
+
+- name: Activate new mail alias
+  command: newaliases
+  become: yes
+
+- meta: flush_handlers
+
+# vim: set ts=2 sts=2 sw=2 et:

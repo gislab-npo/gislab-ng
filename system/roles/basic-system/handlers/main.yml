@@ -2,6 +2,12 @@
 
 # TODO: replace service module with systemd module in Ansible 2.2
 
+- name: service rsyslog restart
+  service:
+    name: rsyslog
+    state: restarted
+  become: yes
+
 - name: reconfigure timezone
   command: dpkg-reconfigure --frontend noninteractive tzdata
   become: yes
@@ -24,4 +30,4 @@
     state: restarted
   become: yes
 
-# vim: set ts=8 sts=2 sw=2 et:
+# vim: set ts=2 sts=2 sw=2 et:

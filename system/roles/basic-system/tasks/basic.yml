@@ -7,6 +7,21 @@
     state: present
   become: yes
 
+
+- name: Configure hosts file
+  template:
+    src: hosts.j2
+    dest: /etc/hosts
+  notify:
+    - service rsyslog restart
+  become: yes
+
+- name: Set hostname
+  hostname:
+    name: "{{ inventory_hostname_short }}"
+  become: yes
+
+
 - name: Set timezone
   template:
     src: timezone.j2
@@ -14,6 +29,9 @@
   notify:
     - reconfigure timezone
   become: yes
+
+- meta: flush_handlers
+
 
 - name: Set system wide environment variables
   template:
@@ -26,6 +44,7 @@
     src: aliases.j2
     dest: /etc/aliases
   become: yes
+
 
 - name: Configure SSH server
   template:
@@ -46,7 +65,6 @@
   command: run-parts /etc/update-motd.d
   become: yes
 
-- meta: flush_handlers
 
 
 ### PACKAGES

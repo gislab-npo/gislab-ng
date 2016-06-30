@@ -65,9 +65,6 @@ Vagrant.configure(2) do |config|
                 inst.vm.network "private_network",
                     type: "dhcp"
 
-                # hostname
-                inst.vm.hostname = iname.gsub("_", "-")
-
                 # ports forwarding
                 cfg["ports"].each do | port |
                     inst.vm.network "forwarded_port",

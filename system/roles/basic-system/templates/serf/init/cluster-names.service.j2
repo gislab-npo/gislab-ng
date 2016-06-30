@@ -6,7 +6,7 @@ After=network.target
 Type=oneshot
 
 ExecStart=/bin/sh -c '/bin/echo "127.0.0.1  localhost" > /etc/hosts'
-ExecStart=/bin/sh -c '/bin/echo "127.0.1.1  $(/bin/hostname) $(/bin/hostname).gis.lab" \
+ExecStart=/bin/sh -c '/bin/echo "127.0.1.1  $(/bin/hostname).gis.lab $(/bin/hostname)" \
     >> /etc/hosts'
 ExecStart=/bin/sh -c ' \
     /usr/local/bin/serf members -status=alive \

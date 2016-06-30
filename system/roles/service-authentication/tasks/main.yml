@@ -93,14 +93,14 @@
 
 
 # load new configuration
-- name: Load storage directory configuration (run only once)
+- name: Load new storage configuration (run only once)
   template:
     src: ldap/change_ldap_directory.ldif.j2
     dest: /tmp/ldap.ldif
   when: ldap_db_status.stdout == "LDAP-DB-EMPTY"
   become: yes
 
-- name: Install storage directory configuration (run only once)
+- name: Install new storage configuration (run only once)
   shell: >
     ldapadd
     -Q
@@ -182,8 +182,10 @@
 
 - name: Save LDAP admin password to LDAP db
   shell: >
-    printf 'dn: olcDatabase={1}mdb,cn=config\nreplace: olcRootPW\nolcRootPW:
-    {{ ldap_admin_password_hash.stdout }}\n'
+    printf
+    'dn:
+    olcDatabase={1}mdb,cn=config\nreplace:
+    olcRootPW\nolcRootPW: {{ ldap_admin_password_hash.stdout }}\n'
     |
     ldapmodify
     -Q
@@ -380,14 +382,6 @@
         src: "ldapscripts/addgroup.template.j2",
         dest: "/etc/ldapscripts/addgroup.template"
       }
-  become: yes
-
-- name: Save LDAP admin password to LDAP scripts
-  shell: >
-    printf "{{ ldap_admin_password.stdout }}"
-    > /etc/ldapscripts/ldapscripts.passwd
-    &&
-    chmod 0600 /etc/ldapscripts/ldapscripts.passwd
   become: yes
 
 

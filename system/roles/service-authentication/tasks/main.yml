@@ -32,13 +32,6 @@
   become: yes
 
 
-- name: Add 'openldap' user to 'ssl-cert' group
-  shell: >
-    adduser openldap ssl-cert 2> /dev/null
-    ||
-    true
-  become: yes
-
 - name: Detect if LDAP is installed
   shell: >
     ldapsearch
@@ -52,6 +45,15 @@
     executable: /bin/bash
   register: ldap_db_status
   changed_when: False
+  become: yes
+
+
+### LDAP USER GROUP
+- name: Add openldap user to ssl-cert group
+  shell: >
+    adduser openldap ssl-cert 2> /dev/null
+    ||
+    true
   become: yes
 
 
@@ -95,8 +97,8 @@
 # load new configuration
 - name: Load new storage configuration (run only once)
   template:
-    src: ldap/change_ldap_directory.ldif.j2
-    dest: /tmp/ldap.ldif
+    src: ldap/ldif/config-ldap-storage.ldif.j2
+    dest: "{{ GISLAB_PATH_TMP }}/ldap.ldif"
   when: ldap_db_status.stdout == "LDAP-DB-EMPTY"
   become: yes
 
@@ -106,7 +108,7 @@
     -Q
     -Y EXTERNAL
     -H ldapi:///
-    -f /tmp/ldap.ldif
+    -f "{{ GISLAB_PATH_TMP }}/ldap.ldif"
   when: ldap_db_status.stdout == "LDAP-DB-EMPTY"
   become: yes
 
@@ -119,22 +121,7 @@
   become: yes
 
 
-### PAM
-- name: Configure PAM to use Unix and LDAP authentication
-  shell: >
-    DEBIAN_FRONTEND=noninteractive {{ item }}
-  with_items:
-    - "pam-auth-update --force"
-    - "auth-client-config -t nss -p lac_ldap"
-  become: yes
-
-- name: Configure PAM to use LDAP
-  template:
-    src: ldap/ldap-pam.conf.j2
-    dest: /etc/ldap.conf
-  become: yes
-
-
+### LDAP CLIENT
 - name: LDAP clients configuration
 # configure base DN and URI and disable certificates verification
   template:
@@ -153,20 +140,20 @@
   become: yes
 
 
-# LDAP admin credentials
+### ADMIN PASSWORD
 - name: Generate LDAP admin password (run only once)
   shell: >
     pwgen
     -s
     -N 1 10
-    > {{ GISLAB_PATH_SECRET }}/gislab_ldap_admin_password.txt
+    > {{ GISLAB_PATH_SECRET }}/gislab_ldap_password.txt
   args:
-    creates: "{{ GISLAB_PATH_SECRET }}/gislab_ldap_admin_password.txt"
+    creates: "{{ GISLAB_PATH_SECRET }}/gislab_ldap_password.txt"
   become: yes
 
 - name: Get LDAP admin password
   shell: >
-    cat {{ GISLAB_PATH_SECRET }}/gislab_ldap_admin_password.txt
+    cat {{ GISLAB_PATH_SECRET }}/gislab_ldap_password.txt
   register: ldap_admin_password
   changed_when: False
   become: yes
@@ -238,8 +225,8 @@
 
 - name: Load TLS certificates configuration
   template:
-    src: ldap/tls-certificates.ldif.j2
-    dest: /tmp/ldap.ldif
+    src: ldap/ldif/config-tls.ldif.j2
+    dest: "{{ GISLAB_PATH_TMP }}/ldap.ldif"
   when: ldap_db_status.stdout == "LDAP-DB-EMPTY"
   become: yes
 
@@ -249,7 +236,7 @@
     -Q
     -Y EXTERNAL
     -H ldapi:///
-    -f /tmp/ldap.ldif
+    -f "{{ GISLAB_PATH_TMP }}/ldap.ldif"
   when: ldap_db_status.stdout == "LDAP-DB-EMPTY"
   notify:
     - service slapd restart
@@ -269,9 +256,8 @@
 
 - name: Load sudo LDAP schema
   template:
-    src: ldap/sudo-schema.ldif.j2
-    dest: /tmp/ldap.ldif
-  when: ldap_db_status.stdout == "LDAP-DB-EMPTY"
+    src: ldap/ldif/schema-sudo.ldif.j2
+    dest: "{{ GISLAB_PATH_TMP }}/ldap.ldif"
   become: yes
 
 - name: Install sudo LDAP schema (run only once)
@@ -280,17 +266,17 @@
     -Q
     -Y EXTERNAL
     -H ldapi:///
-    -f /tmp/ldap.ldif
-  when: ldap_db_status.stdout == "LDAP-DB-EMPTY"
+    -f "{{ GISLAB_PATH_TMP }}/ldap.ldif"
+  args:
+    creates: "/etc/ldap/slapd.d/cn=config/cn=schema/cn={4}sudo.ldif"
   become: yes
 
 
 # LDAP Postfix schema
 - name: Load Postfix LDAP schema
   template:
-    src: ldap/postfix-schema.ldif.j2
-    dest: /tmp/ldap.ldif
-  when: ldap_db_status.stdout == "LDAP-DB-EMPTY"
+    src: ldap/ldif/schema-postfix.ldif.j2
+    dest: "{{ GISLAB_PATH_TMP }}/ldap.ldif"
   become: yes
 
 - name: Install Postfix LDAP schema (run only once)
@@ -299,44 +285,27 @@
     -Q
     -Y EXTERNAL
     -H ldapi:///
-    -f /tmp/ldap.ldif
-  when: ldap_db_status.stdout == "LDAP-DB-EMPTY"
+    -f "{{ GISLAB_PATH_TMP }}/ldap.ldif"
+  args:
+    creates: "/etc/ldap/slapd.d/cn=config/cn=schema/cn={5}postfix.ldif"
   become: yes
 
 
 # LDAP indexes
-- name: Load LDIF file for removing indexes
-  template:
-    src: ldap/remove-indexes.ldif.j2
-    dest: /tmp/ldap.ldif
-  when: ldap_db_status.stdout == "LDAP-DB-EMPTY"
-  become: yes
-
-- name: Remove LDAP indexes
-  shell: >
-    ldapmodify
-    -Q
-    -Y EXTERNAL
-    -H ldapi:///
-    -f /tmp/ldap.ldif
-  when: ldap_db_status.stdout == "LDAP-DB-EMPTY"
-  become: yes
-
-
 - name: Load LDAP indexes
   template:
-    src: ldap/indexes.ldif.j2
-    dest: /tmp/ldap.ldif
+    src: ldap/ldif/config-indexes.ldif.j2
+    dest: "{{ GISLAB_PATH_TMP }}/ldap.ldif"
   when: ldap_db_status.stdout == "LDAP-DB-EMPTY"
   become: yes
 
-- name: Install LDAP indexes (run only once)
+- name: Install LDAP indexes
   shell: >
     ldapmodify
     -Q
     -Y EXTERNAL
     -H ldapi:///
-    -f /tmp/ldap.ldif
+    -f "{{ GISLAB_PATH_TMP }}/ldap.ldif"
   when: ldap_db_status.stdout == "LDAP-DB-EMPTY"
   become: yes
 
@@ -344,8 +313,8 @@
 # GIS.lab LDAP tree
 - name: Load GIS.lab LDAP tree
   template:
-    src: ldap/gislab-tree.ldif.j2
-    dest: /tmp/ldap.ldif
+    src: ldap/ldif/tree-gislab.ldif.j2
+    dest: "{{ GISLAB_PATH_TMP }}/ldap.ldif"
   when: ldap_db_status.stdout == "LDAP-DB-EMPTY"
   become: yes
 
@@ -355,14 +324,14 @@
     -Z
     -w {{ ldap_admin_password.stdout }}
     -D "cn=admin,dc=gis,dc=lab"
-    -f /tmp/ldap.ldif
+    -f "{{ GISLAB_PATH_TMP }}/ldap.ldif"
   when: ldap_db_status.stdout == "LDAP-DB-EMPTY"
   become: yes
 
 - meta: flush_handlers
 
 
-# LDAPscripts
+### LDAPSCRIPTS
 - name: Configure LDAP scripts
   template:
     src: ldapscripts/ldapscripts.conf.j2
@@ -385,11 +354,29 @@
   become: yes
 
 
+### PAM
+# TODO: consider moving PAM config to some other role which can be used by
+# nodes as well
+- name: Configure PAM to use Unix and LDAP authentication
+  shell: >
+    DEBIAN_FRONTEND=noninteractive {{ item }}
+  with_items:
+    - "pam-auth-update --force"
+    - "auth-client-config -t nss -p lac_ldap"
+  become: yes
+
+- name: Configure PAM to use LDAP
+  template:
+    src: ldap/ldap-pam.conf.j2
+    dest: /etc/ldap.conf
+  become: yes
+
+
 ### LOGGING
 - name: Load LDAP logging configuration
   template:
-    src: ldap/logging.ldif.j2
-    dest: /tmp/ldap.ldif
+    src: ldap/ldif/config-logging.ldif.j2
+    dest: "{{ GISLAB_PATH_TMP }}/ldap.ldif"
   become: yes
 
 - name: Install LDAP logging configuration
@@ -398,14 +385,14 @@
     -Q
     -Y EXTERNAL
     -H ldapi:///
-    -f /tmp/ldap.ldif
+    -f "{{ GISLAB_PATH_TMP }}/ldap.ldif"
   become: yes
 
 
 ### CLEANUP
 - name: Remove temporary 'ldif' file
   file:
-    path: /tmp/ldap.ldif
+    path: "{{ GISLAB_PATH_TMP }}/ldap.ldif"
     state: absent
   become: yes
 

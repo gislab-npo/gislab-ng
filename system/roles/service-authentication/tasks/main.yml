@@ -19,32 +19,13 @@
   # password using 'passwd' command.
   with_items:
     - auth-client-config
-    - ldapscripts
     - libpam-cracklib
     - libpam-ldap
     - ldap-utils
     - libnss-ldap
-    - members
     - pwgen
-    - python-ldap
     - slapd
   environment: "{{ proxy_env }}"
-  become: yes
-
-
-- name: Detect if LDAP is installed
-  shell: >
-    ldapsearch
-    -Q
-    -LLL
-    -Y EXTERNAL
-    -H ldapi:/// '(o=gis.lab)' 2>/dev/null
-    ||
-    echo 'LDAP-DB-EMPTY'
-  args:
-    executable: /bin/bash
-  register: ldap_db_status
-  changed_when: False
   become: yes
 
 
@@ -75,7 +56,6 @@
   service:
     name: slapd
     state: stopped
-  when: ldap_db_status.stdout == "LDAP-DB-EMPTY"
   become: yes
 
 - name: Move LDAP database to storage directory (run only once)
@@ -95,21 +75,19 @@
 
 
 # load new configuration
-- name: Load new storage configuration (run only once)
+- name: Load new storage configuration
   template:
-    src: ldap/ldif/config-ldap-storage.ldif.j2
-    dest: "{{ GISLAB_PATH_TMP }}/ldap.ldif"
-  when: ldap_db_status.stdout == "LDAP-DB-EMPTY"
+    src: ldap/ldif/config-storage.ldif.j2
+    dest: "{{ GISLAB_PATH_TMP }}/config-storage.ldif"
   become: yes
 
-- name: Install new storage configuration (run only once)
+- name: Install new storage configuration
   shell: >
-    ldapadd
+    ldapmodify
     -Q
     -Y EXTERNAL
     -H ldapi:///
-    -f "{{ GISLAB_PATH_TMP }}/ldap.ldif"
-  when: ldap_db_status.stdout == "LDAP-DB-EMPTY"
+    -f "{{ GISLAB_PATH_TMP }}/config-storage.ldif"
   become: yes
 
 
@@ -143,31 +121,23 @@
 ### ADMIN PASSWORD
 - name: Generate LDAP admin password (run only once)
   shell: >
-    pwgen
-    -s
-    -N 1 10
+    echo
+    -n $(pwgen -s -N 1 10)
     > {{ GISLAB_PATH_SECRET }}/gislab_ldap_password.txt
   args:
     creates: "{{ GISLAB_PATH_SECRET }}/gislab_ldap_password.txt"
   become: yes
 
-- name: Get LDAP admin password
-  shell: >
-    cat {{ GISLAB_PATH_SECRET }}/gislab_ldap_password.txt
-  register: ldap_admin_password
-  changed_when: False
-  become: yes
-
 - name: Generate hash of LDAP admin password
   shell: >
     slappasswd
-    -s {{ ldap_admin_password.stdout }}
+    -s $(cat {{ GISLAB_PATH_SECRET }}/gislab_ldap_password.txt)
     -h {SSHA}
   register: ldap_admin_password_hash
   changed_when: False
   become: yes
 
-- name: Save LDAP admin password to LDAP db
+- name: Set LDAP admin password
   shell: >
     printf
     'dn:
@@ -226,24 +196,98 @@
 - name: Load TLS certificates configuration
   template:
     src: ldap/ldif/config-tls.ldif.j2
-    dest: "{{ GISLAB_PATH_TMP }}/ldap.ldif"
-  when: ldap_db_status.stdout == "LDAP-DB-EMPTY"
+    dest: "{{ GISLAB_PATH_TMP }}/config-tls.ldif"
   become: yes
 
-- name: Install TLS certificates configuration (run only once)
+- name: Install TLS certificates configuration
   shell: >
     ldapmodify
     -Q
     -Y EXTERNAL
     -H ldapi:///
-    -f "{{ GISLAB_PATH_TMP }}/ldap.ldif"
-  when: ldap_db_status.stdout == "LDAP-DB-EMPTY"
+    -f "{{ GISLAB_PATH_TMP }}/config-tls.ldif"
   notify:
     - service slapd restart
   become: yes
 
 
-### LDAP
+### LDAP TREE
+# GIS.lab user groups
+- name: Detect if LDAP user groups unit is installed
+  shell: >
+    ldapsearch
+    -Q
+    -LLL
+    -Y EXTERNAL
+    -H ldapi:///
+    '(&(objectClass=organizationalUnit)(ou=groups))' 2>/dev/null
+    |
+    grep 'objectClass: organizationalUnit'
+    ||
+    echo 'EMPTY'
+  args:
+    executable: /bin/bash
+  register: ldap_groups_status
+  changed_when: False
+  become: yes
+
+
+- name: Load LDAP user groups unit
+  template:
+    src: ldap/ldif/unit-groups.ldif.j2
+    dest: "{{ GISLAB_PATH_TMP }}/unit-groups.ldif"
+  when: ldap_groups_status.stdout == "EMPTY"
+  become: yes
+
+- name: Install LDAP user groups unit (run only once)
+  shell: >
+    ldapadd
+    -Z
+    -y {{ GISLAB_PATH_SECRET }}/gislab_ldap_password.txt
+    -D "cn=admin,dc=gis,dc=lab"
+    -f "{{ GISLAB_PATH_TMP }}/unit-groups.ldif"
+  when: ldap_groups_status.stdout == "EMPTY"
+  become: yes
+
+
+# GIS.lab users
+- name: Detect if LDAP user unit is installed
+  shell: >
+    ldapsearch
+    -Q
+    -LLL
+    -Y EXTERNAL
+    -H ldapi:///
+    '(&(objectClass=organizationalUnit)(ou=people))' 2>/dev/null
+    |
+    grep 'objectClass: organizationalUnit'
+    ||
+    echo 'EMPTY'
+  args:
+    executable: /bin/bash
+  register: ldap_people_status
+  changed_when: False
+  become: yes
+
+
+- name: Load LDAP users unit
+  template:
+    src: ldap/ldif/unit-users.ldif.j2
+    dest: "{{ GISLAB_PATH_TMP }}/unit-users.ldif"
+  when: ldap_people_status.stdout == "EMPTY"
+  become: yes
+
+- name: Install LDAP users unit (run only once)
+  shell: >
+    ldapadd
+    -Z
+    -y {{ GISLAB_PATH_SECRET }}/gislab_ldap_password.txt
+    -D "cn=admin,dc=gis,dc=lab"
+    -f "{{ GISLAB_PATH_TMP }}/unit-users.ldif"
+  when: ldap_people_status.stdout == "EMPTY"
+  become: yes
+
+
 # LDAP sudo
 - name: Install LDAP sudo support
   shell: >
@@ -257,7 +301,7 @@
 - name: Load sudo LDAP schema
   template:
     src: ldap/ldif/schema-sudo.ldif.j2
-    dest: "{{ GISLAB_PATH_TMP }}/ldap.ldif"
+    dest: "{{ GISLAB_PATH_TMP }}/schema-sudo.ldif"
   become: yes
 
 - name: Install sudo LDAP schema (run only once)
@@ -266,28 +310,100 @@
     -Q
     -Y EXTERNAL
     -H ldapi:///
-    -f "{{ GISLAB_PATH_TMP }}/ldap.ldif"
+    -f "{{ GISLAB_PATH_TMP }}/schema-sudo.ldif"
   args:
     creates: "/etc/ldap/slapd.d/cn=config/cn=schema/cn={4}sudo.ldif"
   become: yes
 
 
-# LDAP Postfix schema
-- name: Load Postfix LDAP schema
-  template:
-    src: ldap/ldif/schema-postfix.ldif.j2
-    dest: "{{ GISLAB_PATH_TMP }}/ldap.ldif"
+- name: Detect if sudo LDAP unit is installed
+  shell: >
+    ldapsearch
+    -Q
+    -LLL
+    -Y EXTERNAL
+    -H ldapi:///
+    '(&(objectClass=organizationalUnit)(ou=SUDOers))' 2>/dev/null
+    |
+    grep 'objectClass: organizationalUnit'
+    ||
+    echo 'EMPTY'
+  args:
+    executable: /bin/bash
+  register: ldap_sudoers_status
+  changed_when: False
   become: yes
 
-- name: Install Postfix LDAP schema (run only once)
+- name: Load sudo LDAP unit
+  template:
+    src: ldap/ldif/unit-sudo.ldif.j2
+    dest: "{{ GISLAB_PATH_TMP }}/unit-sudo.ldif"
+  when: ldap_sudoers_status.stdout == "EMPTY"
+  become: yes
+
+- name: Install sudo LDAP unit (run only once)
+  shell: >
+    ldapadd
+    -Z
+    -y {{ GISLAB_PATH_SECRET }}/gislab_ldap_password.txt
+    -D "cn=admin,dc=gis,dc=lab"
+    -f "{{ GISLAB_PATH_TMP }}/unit-sudo.ldif"
+  when: ldap_sudoers_status.stdout == "EMPTY"
+  become: yes
+
+
+# LDAP email schema
+- name: Load email LDAP schema
+  template:
+    src: ldap/ldif/schema-postfix.ldif.j2
+    dest: "{{ GISLAB_PATH_TMP }}/schema-postfix.ldif"
+  become: yes
+
+- name: Install email LDAP schema (run only once)
   shell: >
     ldapadd
     -Q
     -Y EXTERNAL
     -H ldapi:///
-    -f "{{ GISLAB_PATH_TMP }}/ldap.ldif"
+    -f "{{ GISLAB_PATH_TMP }}/schema-postfix.ldif"
   args:
     creates: "/etc/ldap/slapd.d/cn=config/cn=schema/cn={5}postfix.ldif"
+  become: yes
+
+
+- name: Detect if email LDAP unit is installed
+  shell: >
+    ldapsearch
+    -Q
+    -LLL
+    -Y EXTERNAL
+    -H ldapi:///
+    '(&(objectClass=organizationalUnit)(ou=mailaliases))' 2>/dev/null
+    |
+    grep 'objectClass: organizationalUnit'
+    ||
+    echo 'EMPTY'
+  args:
+    executable: /bin/bash
+  register: ldap_mailaliases_status
+  changed_when: False
+  become: yes
+
+- name: Load email LDAP unit
+  template:
+    src: ldap/ldif/unit-email.ldif.j2
+    dest: "{{ GISLAB_PATH_TMP }}/unit-email.ldif"
+  when: ldap_mailaliases_status.stdout == "EMPTY"
+  become: yes
+
+- name: Install email LDAP unit (run only once)
+  shell: >
+    ldapadd
+    -Z
+    -y {{ GISLAB_PATH_SECRET }}/gislab_ldap_password.txt
+    -D "cn=admin,dc=gis,dc=lab"
+    -f "{{ GISLAB_PATH_TMP }}/unit-email.ldif"
+  when: ldap_mailaliases_status.stdout == "EMPTY"
   become: yes
 
 
@@ -295,8 +411,7 @@
 - name: Load LDAP indexes
   template:
     src: ldap/ldif/config-indexes.ldif.j2
-    dest: "{{ GISLAB_PATH_TMP }}/ldap.ldif"
-  when: ldap_db_status.stdout == "LDAP-DB-EMPTY"
+    dest: "{{ GISLAB_PATH_TMP }}/config-indexes.ldif"
   become: yes
 
 - name: Install LDAP indexes
@@ -305,53 +420,10 @@
     -Q
     -Y EXTERNAL
     -H ldapi:///
-    -f "{{ GISLAB_PATH_TMP }}/ldap.ldif"
-  when: ldap_db_status.stdout == "LDAP-DB-EMPTY"
-  become: yes
-
-
-# GIS.lab LDAP tree
-- name: Load GIS.lab LDAP tree
-  template:
-    src: ldap/ldif/tree-gislab.ldif.j2
-    dest: "{{ GISLAB_PATH_TMP }}/ldap.ldif"
-  when: ldap_db_status.stdout == "LDAP-DB-EMPTY"
-  become: yes
-
-- name: Install GIS.lab LDAP tree (run only once)
-  shell: >
-    ldapadd
-    -Z
-    -w {{ ldap_admin_password.stdout }}
-    -D "cn=admin,dc=gis,dc=lab"
-    -f "{{ GISLAB_PATH_TMP }}/ldap.ldif"
-  when: ldap_db_status.stdout == "LDAP-DB-EMPTY"
+    -f "{{ GISLAB_PATH_TMP }}/config-indexes.ldif"
   become: yes
 
 - meta: flush_handlers
-
-
-### LDAPSCRIPTS
-- name: Configure LDAP scripts
-  template:
-    src: ldapscripts/ldapscripts.conf.j2
-    dest: /etc/ldapscripts/ldapscripts.conf
-  become: yes
-
-- name: Install LDAP scripts user's and group's templates
-  template:
-    src: "{{ item.src }}"
-    dest: "{{ item.dest }}"
-  with_items:
-    - {
-        src: "ldapscripts/adduser.template.j2",
-        dest: "/etc/ldapscripts/adduser.template"
-      }
-    - {
-        src: "ldapscripts/addgroup.template.j2",
-        dest: "/etc/ldapscripts/addgroup.template"
-      }
-  become: yes
 
 
 ### PAM
@@ -376,7 +448,7 @@
 - name: Load LDAP logging configuration
   template:
     src: ldap/ldif/config-logging.ldif.j2
-    dest: "{{ GISLAB_PATH_TMP }}/ldap.ldif"
+    dest: "{{ GISLAB_PATH_TMP }}/config-logging.ldif"
   become: yes
 
 - name: Install LDAP logging configuration
@@ -385,15 +457,7 @@
     -Q
     -Y EXTERNAL
     -H ldapi:///
-    -f "{{ GISLAB_PATH_TMP }}/ldap.ldif"
-  become: yes
-
-
-### CLEANUP
-- name: Remove temporary 'ldif' file
-  file:
-    path: "{{ GISLAB_PATH_TMP }}/ldap.ldif"
-    state: absent
+    -f "{{ GISLAB_PATH_TMP }}/config-logging.ldif"
   become: yes
 
 # vim: set ts=2 sts=2 sw=2 et:

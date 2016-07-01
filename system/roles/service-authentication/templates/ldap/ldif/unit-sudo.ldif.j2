@@ -1,0 +1,21 @@
+dn: ou=SUDOers,dc=gis,dc=lab
+objectClass: top
+objectClass: organizationalUnit
+ou: SUDOers
+
+dn: cn=defaults,ou=SUDOers,dc=gis,dc=lab
+objectClass: top
+objectClass: sudoRole
+cn: defaults
+description: Default sudoOption's go here
+sudoOption: env_reset
+sudoOption: secure_path="/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin:{{ GISLAB_PATH_ADMIN }}:"
+
+dn: cn=%gislabadmins,ou=SUDOers,dc=gis,dc=lab
+objectClass: top
+objectClass: sudoRole
+cn: %gislabadmins
+sudoUser: %gislabadmins
+sudoHost: ALL
+sudoCommand: ALL
+sudoOption: !authenticate

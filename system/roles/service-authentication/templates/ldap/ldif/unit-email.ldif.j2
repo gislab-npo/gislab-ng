@@ -1,0 +1,10 @@
+dn: ou=MailAliases,dc=gis,dc=lab
+objectClass: organizationalUnit
+ou: mailaliases
+
+dn: cn=root,ou=MailAliases,dc=gis,dc=lab
+objectclass: top
+objectClass: virtualaccount
+cn: root
+mailacceptinggeneralid: root
+maildrop: {{ GISLAB_PROVISIONING_USER }}

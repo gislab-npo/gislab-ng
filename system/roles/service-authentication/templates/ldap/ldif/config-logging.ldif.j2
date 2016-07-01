@@ -1,9 +1,4 @@
 dn: cn=config
 changetype: modify
-delete: olcLogLevel
-
-# GISLAB_DEBUG: set olcLogLevel value to 'stats' for debug mode
-dn: cn=config
-changetype: modify
-add: olcLogLevel
+replace: olcLogLevel
 olcLogLevel: none

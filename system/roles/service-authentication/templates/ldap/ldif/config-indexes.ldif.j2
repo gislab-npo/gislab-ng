@@ -1,40 +1,31 @@
 dn: olcDatabase={1}mdb,cn=config
 changetype: modify
-delete: olcDbIndex
-olcDbIndex: cn,uid eq
--
-delete: olcDbIndex
-olcDbIndex: uidNumber,gidNumber eq
--
-delete: olcDbIndex
-olcDbIndex: member,memberUid eq
--
-add: olcDbIndex
+replace: olcDbIndex
 olcDbIndex: default eq,sub
 -
-add: olcDbIndex
+replace: olcDbIndex
 olcDbIndex: cn,sn,uid,mail,gn pres,eq,sub,subany
 -
-add: olcDbIndex
+replace: olcDbIndex
 olcDbIndex: dc,ou eq
 -
-add: olcDbIndex
+replace: olcDbIndex
 olcDbIndex: uidNumber,gidNumber eq
 -
-add: olcDbIndex
+replace: olcDbIndex
 olcDbIndex: memberUid eq,pres,sub
 -
-add: olcDbIndex
+replace: olcDbIndex
 olcDbIndex: displayName pres,sub,eq
 -
-add: olcDbIndex
+replace: olcDbIndex
 olcDbIndex: uniqueMember pres,eq
 -
-add: olcDbIndex
+replace: olcDbIndex
 olcDbIndex: sudoUser eq,sub,subany
 -
-add: olcDbIndex
+replace: olcDbIndex
 olcDbIndex: mailacceptinggeneralid pres,eq
 -
-add: olcDbIndex
+replace: olcDbIndex
 olcDbIndex: maildrop pres,eq

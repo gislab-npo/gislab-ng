@@ -5,6 +5,21 @@
 #
 # Docker containers installation.
 
+- name: Install Docker Apt repository
+  apt_repository:
+    repo: "{{ docker_repository }}"
+    state: present
+    update_cache: yes
+  become: yes
+
+- name: Install Docker Apt repository key
+  apt_key:
+    id: "{{ docker_repository_key_id }}"
+    data: "{{ docker_repository_key }}"
+    state: present
+  become: yes
+
+
 - name: Install packages
   apt:
     pkg: "{{ item }}"
@@ -12,7 +27,7 @@
     install_recommends: no
     state: latest
   with_items:
-    - docker.io
+    - docker-engine
   environment: "{{ proxy_env }}"
   become: yes
 

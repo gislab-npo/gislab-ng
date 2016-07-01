@@ -54,7 +54,7 @@
     |
     md5sum
     |
-    tr -d "-"
+    awk -F " " '{print $1}'
   register: gislab_install_unique_string
   changed_when: False
 

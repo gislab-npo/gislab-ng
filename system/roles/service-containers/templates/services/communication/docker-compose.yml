@@ -1,0 +1,13 @@
+version: '2'
+
+services:
+  chat:
+    image: chat
+    ports:
+      - "6667:6667"
+#    logging:
+#        driver: syslog
+#        options:
+#            syslog-address: "tcp://master.gis.lab:123"
+
+# vim: set ts=2 sts=2 sw=2 et:

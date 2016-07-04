@@ -1,0 +1,45 @@
+---
+
+#
+### IRC SERVER ###
+#
+# Install IRC chat server.
+
+- hosts: all
+
+  vars:
+    proxy_env:
+      http_proxy: "{{ lookup('env','http_proxy') }}"
+
+  tasks:
+    - name: Install packages
+      apt:
+        pkg: "{{ item }}"
+        force: yes
+        install_recommends: no
+        state: latest
+      with_items:
+        - ircd-hybrid
+      environment: "{{ proxy_env }}"
+
+
+    - name: Configure IRC server
+      template:
+        src: "{{ item.src }}"
+        dest: "{{ item.dest }}"
+      with_items:
+        - {
+            src: ircd/ircd.conf.j2,
+            dest: /etc/ircd-hybrid/ircd.conf
+          }
+        - {
+            src: ircd/ircd.motd.j2,
+            dest: /etc/ircd-hybrid/ircd.motd
+          }
+
+    - name: Install IRC server supervisord configuration
+      template:
+        src: ircd/supervisord.conf.j2
+        dest: /etc/supervisor/conf.d/supervisord.conf
+
+# vim: set ts=2 sts=2 sw=2 et:

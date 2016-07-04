@@ -93,6 +93,7 @@
   environment: "{{ proxy_env }}"
   become: yes
 
+
 - name: Install Aptitude
   apt:
     pkg: aptitude
@@ -107,5 +108,20 @@
   environment: "{{ proxy_env }}"
   when: GISLAB_SYSTEM_UPGRADE
   become: yes
+
+
+- name: Install Python Pip
+  apt:
+    pkg: python-pip
+    state: latest
+  environment: "{{ proxy_env }}"
+  become: yes
+
+- name: Upgrade Python Pip
+  pip:
+    name: pip
+    state: latest
+  become: yes
+
 
 # vim: set ts=2 sts=2 sw=2 et:

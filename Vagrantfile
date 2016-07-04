@@ -16,6 +16,7 @@ ROLES = {
         "ports" => [
             ["22", "10022"],
             ["5432", "15432"],
+            ["6667", "16667"],
         ],
         "count" => "1",  # only one master server is supported
     },

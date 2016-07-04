@@ -28,7 +28,80 @@
     state: latest
   with_items:
     - docker-engine
+    - python-cached-property
+    - python-docopt
+    - python-enum34
+    - python-ipaddress
+    - python-jsonschema
+    - python-yaml
+    - python-setuptools
+    - python-six
+    - python-texttable
   environment: "{{ proxy_env }}"
+  become: yes
+
+- name: Install Docker Python tools
+  pip:
+    name: "{{ item }}"
+    state: present
+  with_items:
+    - docker-py
+    - docker-compose
+  become: yes
+
+
+### IMAGES
+- name: Create Docker images installation basic directory
+  file:
+    path: "{{ GISLAB_PATH_TMP }}/docker-images"
+    state: directory
+  become: yes
+
+- name: Load Docker files
+  copy:
+    src: files/
+    dest: "{{ GISLAB_PATH_TMP }}/docker-images"
+  become: yes
+
+- name: Build Docker images
+  docker_image:
+    name: "{{ item }}"
+    path: "{{ GISLAB_PATH_TMP }}/docker-images/{{ item }}"
+    pull: no
+    rm: yes
+    state: present
+  with_items:
+    - basic
+    - chat
+  environment: "{{ proxy_env }}"
+  become: yes
+
+
+### SERVICES
+- name: Create Docker services configuration directories
+  file:
+    path: "{{ GISLAB_PATH_SYSTEM }}/services/{{ item }}"
+    state: directory
+    recurse: yes
+  with_items:
+    - communication
+  become: yes
+
+- name: Install services configuration
+  template:
+    src: services/{{ item }}/docker-compose.yml
+    dest: "{{ GISLAB_PATH_SYSTEM }}/services/{{ item }}/docker-compose.yml"
+  with_items:
+    - communication
+  become: yes
+
+- name: Start services
+  docker_service:
+    project_src: "{{ GISLAB_PATH_SYSTEM }}/services/{{ item }}"
+    state: present
+    restarted: yes
+  with_items:
+    - communication
   become: yes
 
 # vim: set ts=2 sts=2 sw=2 et:

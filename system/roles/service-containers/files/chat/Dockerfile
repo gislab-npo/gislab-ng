@@ -1,6 +1,8 @@
 FROM basic
 MAINTAINER GIS.lab <gis.lab@lists.osgeo.org>
 
+ENV DEBIAN_FRONTEND=noninteractive
+
 # install deployment files
 ADD templates /etc/ansible/deployment/
 ADD deployment.yml /etc/ansible/deployment/deployment.yml
@@ -12,12 +14,10 @@ RUN ansible-playbook \
     /etc/ansible/deployment/deployment.yml
 
 # cleanup
-RUN DEBIAN_FRONTEND=noninteractive \
-    apt-get -y purge \
+RUN apt-get -y purge \
     ansible \
     software-properties-common
-RUN DEBIAN_FRONTEND=noninteractive \
-    apt-get -y autoremove
+RUN apt-get -y autoremove
 
 RUN rm -rf \
     /var/cache/apt/archives/* \

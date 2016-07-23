@@ -12,16 +12,17 @@
     install_recommends: no
     state: latest
   with_items:
+    - gnutls-bin
+
+    # utils
     - arp-scan
     - curl
     - etherwake
-    - gnutls-bin
     - htop
     - iotop
     - mc
     - pwgen
     - pssh
-    - ssl-cert
     - tmux
     - vim
   environment: "{{ proxy_env }}"

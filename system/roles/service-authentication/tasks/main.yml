@@ -19,9 +19,9 @@
   # password using 'passwd' command.
   with_items:
     - auth-client-config
+    - ldap-utils
     - libpam-cracklib
     - libpam-ldap
-    - ldap-utils
     - libnss-ldap
     - pwgen
     - slapd
